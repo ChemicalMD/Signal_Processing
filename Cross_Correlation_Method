@@ -1,65 +1,57 @@
-def Cross_Correlate(X,Y,type):
+def Cross_Correlate(Reference, Waveform):
+    
+    Reference_X = [round(float(t),10) for t,v in zip(Reference[:,0],Reference[:,1])]
+    Reference_Y = norm([v for t,v in zip(Reference[:,0],Reference[:,1])])
+    
+    sr_ref = round((Reference_X[1] - Reference_X[0])**(-1))
+    sr_signal = round((Waveform[1,0] - Waveform[0,0])**(-1))
+    
+    if sr_signal != sr_ref:
 
-    if type == "P":
+        Ref, Wave, sr = resample_to_match(Reference,Waveform)
+    
+        Ref_X = Ref[:,0]
+        Ref_Y = Ref[:,1]
+    
+        X = [round(float(t),10) for t in Wave[:,0]]
+        Y_short = norm(Wave[:,1])
 
-        X_search_P = [x for x,y in zip(X,Y) if 9.6e-6 <= x <= 13e-6]
-        Y_search_P = [y for x,y in zip(X,Y) if 9.6e-6 <= x <= 13e-6]
+        Y_ref = np.append(Ref_Y, [y for y in np.zeros(1 + int((max(X) - max(Ref_X))*sr))])
 
-        X_signal_P = [x for x,y in zip(X_search_P,Y_search_P) if (X_search_P[Y_search_P.index(min(Y_search_P)) - 249]) <= x <= (X_search_P[Y_search_P.index(min(Y_search_P)) + 250])]
-        Y_signal_P = [y for x,y in zip(X_search_P,Y_search_P) if (X_search_P[Y_search_P.index(min(Y_search_P)) - 249]) <= x <= (X_search_P[Y_search_P.index(min(Y_search_P)) + 250])]
+        Y_corr = np.append([y for y in np.zeros(int((min(X))*sr))], Y_short)
 
-        Y_signal_P = preprocessing.normalize(np.array([Y_signal_P]))
-        Y_signal_P = np.ndarray.tolist(Y_signal_P[0])
+        corr = signal.correlate(Y_corr, Y_ref, mode="full")
+        corr = np.insert(corr, 0, 0.0)
+        corr = norm(corr)
+    
+        n = len(Y_corr)
 
-        sr = 2.5e8
+        delay_array = np.linspace(-n/sr, n/sr, 2*n)
+    
+        arrival = (delay_array[np.argmax(corr)])
+    
+        return arrival, corr, delay_array, Ref, Wave
+    
+    else:
+        
+        Ref_X = Reference[:,0]
+        Ref_Y = Reference[:,1]
+        
+        X = [round(float(t),10) for t in Waveform[:,0]]
+        Y_short = norm(Waveform[:,1])
+        
+        Y_ref = np.append(Reference_Y, [y for y in np.zeros(1 + int((max(X) - max(Ref_X))*sr_ref))])
 
-        fill = [y for y in np.zeros(int((min(X_signal_P))*sr))]
+        Y_corr = np.append([y for y in np.zeros(int((min(X))*sr_ref))], Y_short)
 
-        Y_source_P = np.append(Source_signal_Y, fill)
-        Y_signal_P_filled = np.append(fill, Y_signal_P)
+        corr = signal.correlate(Y_corr, Y_ref, mode="full")
+        corr = np.insert(corr, 0, 0.0)
+        corr = norm(corr)
+    
+        n = len(Y_corr)
 
-
-        global corr_P
-        corr_P = signal.correlate(Y_signal_P_filled, Y_source_P, mode="full")
-        corr_P = np.insert(corr_P, 0, 0.0)
-
-        n = len(Y_signal_P_filled)
-
-        global delay_array_P
-        delay_array_P = np.linspace(-n/sr, n/sr, 2*n)
-
-        arrival_P = (delay_array_P[np.argmax(corr_P)])
-
-        return arrival_P, corr_P, delay_array_P, X_signal_P, Y_signal_P
-
-    if type == "S":
-
-        X_search_S = [x for x,y in zip(X,Y) if 15e-6 <= x <= 19e-6]
-        Y_search_S = [y for x,y in zip(X,Y) if 15e-6 <= x <= 19e-6]
-
-        X_signal_S = [x for x,y in zip(X_search_S,Y_search_S) if (X_search_S[Y_search_S.index(max(Y_search_S)) - 209]) <= x <= (X_search_S[Y_search_S.index(max(Y_search_S)) + 290])]
-        Y_signal_S = [y for x,y in zip(X_search_S,Y_search_S) if (X_search_S[Y_search_S.index(max(Y_search_S)) - 209]) <= x <= (X_search_S[Y_search_S.index(max(Y_search_S)) + 290])]
-
-        Y_signal_S = preprocessing.normalize(np.array([Y_signal_S]))
-        Y_signal_S = np.ndarray.tolist(Y_signal_S[0])
-
-        sr = 2.5e8
-
-        fill = [y for y in np.zeros(int((min(X_signal_S))*sr))]
-
-        Y_source_S = np.append(Source_signal_Y, fill)
-        Y_signal_S_filled = np.append(fill, Y_signal_S)
-
-
-        global corr_S
-        corr_S = signal.correlate(Y_signal_S_filled, Y_source_S, mode="full")
-        corr_S = np.insert(corr_S, 0, 0.0)
-
-        n = len(Y_signal_S_filled)
-
-        global delay_array_S
-        delay_array_S = np.linspace(-n/sr, n/sr, 2*n)
-
-        arrival_S = (delay_array_S[np.argmax(corr_S)])
-
-        return arrival_S, corr_S, delay_array_S, X_signal_S, Y_signal_S
+        delay_array = np.linspace(-n/sr_ref, n/sr_ref, 2*n)
+    
+        arrival = (delay_array[np.argmax(corr)])
+    
+        return arrival, corr, delay_array, Reference, Waveform
